@@ -1,5 +1,7 @@
 """Tests for contract extraction from HTML."""
 
+from pathlib import Path
+
 import pytest
 
 from dod_scan.parser_extract import extract_contracts_from_html, RawContract
@@ -7,7 +9,8 @@ from dod_scan.parser_extract import extract_contracts_from_html, RawContract
 
 @pytest.fixture
 def article_page_html() -> str:
-    with open("tests/fixtures/article_page.html") as f:
+    fixture_path = Path(__file__).parent / "fixtures" / "article_page.html"
+    with open(fixture_path) as f:
         return f.read()
 
 

@@ -8,7 +8,7 @@ import sqlite3
 from datetime import datetime, timezone
 
 from dod_scan.parser_extract import extract_contracts_from_html
-from dod_scan.parser_fields import parse_contract_fields
+from dod_scan.parser_fields import ParsedContract, parse_contract_fields
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,8 @@ def parse_all(conn: sqlite3.Connection) -> int:
             _store_contract(conn, article_id, raw.branch, fields, raw.raw_text)
             total_contracts += 1
 
+        conn.commit()
+
     logger.info("Parse complete: %d contracts extracted", total_contracts)
     return total_contracts
 
@@ -47,7 +49,7 @@ def _store_contract(
     conn: sqlite3.Connection,
     article_id: str,
     branch: str,
-    fields,
+    fields: ParsedContract,
     raw_text: str,
 ) -> None:
     conn.execute(
@@ -76,4 +78,3 @@ def _store_contract(
             datetime.now(timezone.utc).isoformat(),
         ),
     )
-    conn.commit()

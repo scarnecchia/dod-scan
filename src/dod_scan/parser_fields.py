@@ -37,6 +37,18 @@ US_STATES = {
     "District of Columbia", "Puerto Rico", "Guam",
 }
 
+# Pre-compiled regex for state matching: sorted by length (longest first) for greedy matching
+_STATES_SORTED = sorted(US_STATES, key=len, reverse=True)
+_STATE_ALTERNATION = "|".join(re.escape(state) for state in _STATES_SORTED)
+_COMPANY_STATE_RE = re.compile(
+    rf"^([^,]+?),\s*\*?\s*([\w\s.'-]+),\s*({_STATE_ALTERNATION})\s*,",
+    re.IGNORECASE,
+)
+_SIMPLE_LOC_STATE_RE = re.compile(
+    rf"({_STATE_ALTERNATION})$",
+    re.IGNORECASE,
+)
+
 # Dollar amount: $X,XXX,XXX or $X,XXX,XXX,XXX
 _DOLLAR_RE = re.compile(r"\$[\d,]+(?:\.\d{2})?")
 
@@ -111,16 +123,12 @@ def parse_contract_fields(text: str) -> ParsedContract:
 
 
 def _extract_company(text: str) -> tuple[str, str, str]:
-    for state in sorted(US_STATES, key=len, reverse=True):
-        pattern = re.compile(
-            rf"^([^,]+?),\s*\*?\s*([\w\s.'-]+),\s*({re.escape(state)})\s*,",
-            re.IGNORECASE,
-        )
-        match = pattern.match(text)
-        if match:
-            name = match.group(1).strip().rstrip("*").strip()
-            city = match.group(2).strip()
-            return name, city, state
+    match = _COMPANY_STATE_RE.match(text)
+    if match:
+        name = match.group(1).strip().rstrip("*").strip()
+        city = match.group(2).strip()
+        state = match.group(3)
+        return name, city, state
     return "", "", ""
 
 
@@ -198,12 +206,12 @@ def _parse_simple_locations(loc_text: str) -> list[dict]:
         part = part.strip().rstrip(",").strip()
         if not part:
             continue
-        for state in sorted(US_STATES, key=len, reverse=True):
-            if part.lower().endswith(state.lower()):
-                city = part[: -len(state)].rstrip().rstrip(",").strip()
-                if city:
-                    locations.append({"city": city, "state": state})
-                    break
+        match = _SIMPLE_LOC_STATE_RE.search(part)
+        if match:
+            state = match.group(1)
+            city = part[: match.start()].rstrip().rstrip(",").strip()
+            if city:
+                locations.append({"city": city, "state": state})
     return locations
 
 
