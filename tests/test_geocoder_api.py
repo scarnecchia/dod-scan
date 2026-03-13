@@ -8,7 +8,6 @@ import pytest
 
 from dod_scan.geocoder_api import (
     GeocodedLocation,
-    GeocodingError,
     geocode_city_state,
 )
 
