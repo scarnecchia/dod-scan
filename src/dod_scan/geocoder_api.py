@@ -95,6 +95,43 @@ def _call_nominatim(city: str, state: str) -> GeocodedLocation | None:
         query_parts = [p for p in (city, state) if p]
         params = {"q": ", ".join(query_parts), "format": "json", "limit": 1}
 
+    result = _nominatim_request(params, headers)
+    if result:
+        return result
+
+    # Fallback for US locations with complex city names (military bases, etc.)
+    if is_us and city:
+        logger.info("Retrying with free-text query for %s, %s", city, state)
+        time.sleep(RATE_LIMIT_SECONDS)
+        fallback_params: dict[str, str | int] = {
+            "q": f"{city}, {state}",
+            "format": "json",
+            "limit": 1,
+        }
+        result = _nominatim_request(fallback_params, headers)
+        if result:
+            return result
+
+        # Last resort: geocode just the state
+        logger.info("Falling back to state-level geocode for %s", state)
+        time.sleep(RATE_LIMIT_SECONDS)
+        state_params: dict[str, str | int] = {
+            "state": state,
+            "country": "United States",
+            "format": "json",
+            "limit": 1,
+        }
+        result = _nominatim_request(state_params, headers)
+        if result:
+            return result
+
+    logger.warning("No Nominatim results for %s, %s", city, state)
+    return None
+
+
+def _nominatim_request(
+    params: dict[str, str | int], headers: dict[str, str]
+) -> GeocodedLocation | None:
     try:
         resp = httpx.get(NOMINATIM_URL, params=params, headers=headers, timeout=15.0)
         resp.raise_for_status()
@@ -103,7 +140,6 @@ def _call_nominatim(city: str, state: str) -> GeocodedLocation | None:
 
     results = resp.json()
     if not results:
-        logger.warning("No Nominatim results for %s, %s", city, state)
         return None
 
     return GeocodedLocation(
