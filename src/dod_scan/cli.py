@@ -113,9 +113,24 @@ def export(
             typer.echo(f"KML exported to {kml_path}")
 
         if format in ("map", "all"):
-            typer.echo("map export: not yet implemented (Phase 7)")
-            if format == "map":
-                raise typer.Exit(code=1)
+            if not settings.mapbox_token:
+                if format == "all":
+                    typer.echo("MAPBOX_TOKEN not set — skipping map export, KML only")
+                else:
+                    typer.echo(
+                        "Error: MAPBOX_TOKEN not set. Configure in .env file to generate Mapbox dashboard.",
+                        err=True,
+                    )
+                    raise typer.Exit(code=1)
+            else:
+                from dod_scan.export_kml import query_contract_pins
+                from dod_scan.export_map import export_map
+                pins = query_contract_pins(conn, since, branch)
+                map_path = settings.output_dir / "dod_contracts.html"
+                export_map(pins, map_path, settings.mapbox_token)
+                typer.echo(f"Mapbox dashboard exported to {map_path}")
+    except typer.Exit:
+        raise
     except Exception as exc:
         typer.echo(f"Export failed: {exc}", err=True)
         raise typer.Exit(code=1)
