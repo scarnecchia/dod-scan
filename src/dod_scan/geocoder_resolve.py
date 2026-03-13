@@ -53,7 +53,7 @@ def _resolve_from_work_locations(work_locations_json: str) -> LocationToGeocode 
     city = primary.get("city", "").strip()
     state = primary.get("state", "").strip()
 
-    if city and state:
+    if state:
         return LocationToGeocode(city=city, state=state, source="work_location")
 
     return None

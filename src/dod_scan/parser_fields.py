@@ -82,9 +82,9 @@ _WORK_LOC_PCT_RE = re.compile(
     r"(?:;\s*)?(?:and\s+)?([A-Za-z\s.'-]+?),\s*([A-Za-z\s]+?)\s*\((\d+)%\)"
 )
 
-# Simple work location: "Work will be performed at/in ..." — ends at period or "and is"
+# Simple work location: "Work will be performed at/in ..." or "Locations of performance are ..."
 _WORK_PERFORMED_RE = re.compile(
-    r"[Ww]ork\s+(?:will\s+)?(?:be\s+)?performed\s+(?:at|in)\s+([^.]+?)(?:\s+and\s+is|\s*\.)",
+    r"(?:[Ww]ork\s+(?:will\s+)?(?:be\s+)?performed\s+(?:at|in)|[Ll]ocations?\s+of\s+performance\s+(?:are|is))\s+([^.]+?)(?:\s+and\s+is|\s*,\s*with\s+|\s*\.)",
     re.DOTALL,
 )
 
@@ -212,6 +212,8 @@ def _parse_simple_locations(loc_text: str) -> list[dict]:
             city = part[: match.start()].rstrip().rstrip(",").strip()
             if city:
                 locations.append({"city": city, "state": state})
+            else:
+                locations.append({"city": "", "state": state})
     return locations
 
 

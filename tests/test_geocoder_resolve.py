@@ -100,15 +100,15 @@ class TestResolveLocation:
         with pytest.raises(AttributeError):
             location.city = "Tacoma"  # type: ignore
 
-    def test_work_location_missing_city(self) -> None:
-        """Verify work location without city falls back to company HQ."""
+    def test_work_location_state_only(self) -> None:
+        """Verify state-only work location is used (geocodes state centroid)."""
         work_locations_json = json.dumps([{"state": "Washington"}])
         result = resolve_location(work_locations_json, "Arlington", "Virginia")
 
         assert result is not None
-        assert result.city == "Arlington"
-        assert result.state == "Virginia"
-        assert result.source == "company_hq"
+        assert result.city == ""
+        assert result.state == "Washington"
+        assert result.source == "work_location"
 
     def test_work_location_missing_state(self) -> None:
         """Verify work location without state falls back to company HQ."""
