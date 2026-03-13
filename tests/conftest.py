@@ -20,3 +20,15 @@ def db_conn(tmp_db: Path) -> sqlite3.Connection:
     conn = get_connection(tmp_db)
     yield conn
     conn.close()
+
+
+def insert_test_page(conn: sqlite3.Connection, article_id: str, url: str = "http://example.com") -> None:
+    """Helper to insert a test page."""
+    conn.execute(
+        """
+        INSERT INTO pages (article_id, url)
+        VALUES (?, ?)
+        """,
+        (article_id, url),
+    )
+    conn.commit()
