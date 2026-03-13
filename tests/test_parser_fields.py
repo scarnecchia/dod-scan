@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from dod_scan.parser_fields import parse_contract_fields, ParsedContract
 
 
