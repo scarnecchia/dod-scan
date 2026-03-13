@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+.venv/
+venv/
+
+# Environment
+.env
+
+# Project outputs
+*.db
+output/
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
