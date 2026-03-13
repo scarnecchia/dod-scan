@@ -34,8 +34,18 @@ def scrape(
 @app.command()
 def parse() -> None:
     """Extract structured contract data from raw HTML."""
-    typer.echo("parse: not yet implemented")
-    raise typer.Exit(code=1)
+    settings = get_settings()
+    init_db(settings.database_path)
+    conn = get_connection(settings.database_path)
+    try:
+        from dod_scan.parser import parse_all
+        count = parse_all(conn)
+        typer.echo(f"Parse complete: {count} contracts extracted")
+    except Exception as exc:
+        typer.echo(f"Parse failed: {exc}", err=True)
+        raise typer.Exit(code=1)
+    finally:
+        conn.close()
 
 
 @app.command()
