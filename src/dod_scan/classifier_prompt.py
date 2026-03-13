@@ -4,10 +4,7 @@
 from __future__ import annotations
 
 import json
-import logging
 from dataclasses import dataclass
-
-logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
     "You are a DOD contract classification expert. Your job is to determine "
@@ -53,17 +50,14 @@ def parse_classification_response(response_text: str) -> ClassificationResult | 
     json_start = text.find("{")
     json_end = text.rfind("}") + 1
     if json_start == -1 or json_end == 0:
-        logger.warning("No JSON object found in LLM response: %s", text[:200])
         return None
 
     try:
         data = json.loads(text[json_start:json_end])
     except json.JSONDecodeError:
-        logger.warning("Failed to parse JSON from LLM response: %s", text[:200])
         return None
 
     if "is_procurement" not in data:
-        logger.warning("Missing 'is_procurement' in LLM response: %s", data)
         return None
 
     return ClassificationResult(

@@ -1,5 +1,8 @@
 """CLI integration tests."""
 
+from pathlib import Path
+from unittest.mock import patch, MagicMock
+
 from typer.testing import CliRunner
 
 from dod_scan.cli import app
@@ -51,3 +54,26 @@ class TestCLIIntegration:
         result = runner.invoke(app, ["init-db", "--help"])
         assert result.exit_code == 0
         assert "Initialize the database schema" in result.stdout
+
+    def test_export_format_all_without_mapbox_token(self, tmp_path: Path) -> None:
+        """Verify AC6.4: export --format all without MAPBOX_TOKEN skips map, exports KML with message."""
+        settings_mock = MagicMock()
+        settings_mock.database_path = tmp_path / "test.db"
+        settings_mock.output_dir = tmp_path
+        settings_mock.mapbox_token = ""
+
+        with patch("dod_scan.cli.get_settings", return_value=settings_mock):
+            with patch("dod_scan.cli.init_db"):
+                with patch("dod_scan.cli.get_connection") as mock_conn:
+                    with patch("dod_scan.export_kml.export_kml") as mock_export_kml:
+                        mock_conn.return_value = MagicMock()
+
+                        result = runner.invoke(app, ["export", "--format", "all"])
+
+                        # Should succeed with exit code 0
+                        assert result.exit_code == 0
+                        # Should export KML
+                        assert mock_export_kml.called
+                        # Should output message about skipping map export
+                        assert "skipping map export" in result.stdout.lower()
+                        assert "KML only" in result.stdout

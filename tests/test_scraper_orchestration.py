@@ -1,8 +1,7 @@
 """Tests for scraper orchestration and DB persistence."""
 
 import sqlite3
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 from datetime import datetime, timezone
 
 import pytest
