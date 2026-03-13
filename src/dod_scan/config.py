@@ -1,3 +1,4 @@
+# pattern: Imperative Shell
 """Configuration loaded from environment variables and .env file."""
 
 from pathlib import Path

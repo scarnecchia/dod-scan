@@ -1,3 +1,4 @@
+# pattern: Imperative Shell
 """SQLite database schema creation and connection management."""
 
 import sqlite3
