@@ -100,8 +100,27 @@ def export(
     branch: str = typer.Option(None, "--branch", help="Filter to specific branch (e.g. ARMY)"),
 ) -> None:
     """Export geocoded procurement contracts as KML and/or Mapbox dashboard."""
-    typer.echo("export: not yet implemented")
-    raise typer.Exit(code=1)
+    settings = get_settings()
+    init_db(settings.database_path)
+    conn = get_connection(settings.database_path)
+    settings.output_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        if format in ("kml", "all"):
+            from dod_scan.export_kml import export_kml
+            kml_path = settings.output_dir / "dod_contracts.kml"
+            export_kml(conn, kml_path, since=since, branch=branch)
+            typer.echo(f"KML exported to {kml_path}")
+
+        if format in ("map", "all"):
+            typer.echo("map export: not yet implemented (Phase 7)")
+            if format == "map":
+                raise typer.Exit(code=1)
+    except Exception as exc:
+        typer.echo(f"Export failed: {exc}", err=True)
+        raise typer.Exit(code=1)
+    finally:
+        conn.close()
 
 
 @app.command(name="run-all")
