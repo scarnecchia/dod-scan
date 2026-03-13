@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title>DOD Contract Map</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='https://api.mapbox.com/mapbox-gl-js/v3.20.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.20.0/mapbox-gl.css' rel='stylesheet' />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+        #map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100vh;
+        }
+        #sidebar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 320px;
+            height: 100vh;
+            background: white;
+            box-shadow: 0 0 15px rgba(0,0,0,0.15);
+            overflow-y: auto;
+            z-index: 100;
+            padding: 20px;
+        }
+        #sidebar h2 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .filter-section {
+            margin-bottom: 24px;
+        }
+        .filter-section label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        .filter-section input,
+        .filter-section select {
+            width: 100%;
+            padding: 8px;
+            font-size: 13px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+        .filter-section input:focus,
+        .filter-section select:focus {
+            outline: none;
+            border-color: #4a90e2;
+            box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1);
+        }
+        .range-group {
+            display: flex;
+            gap: 8px;
+        }
+        .range-group input {
+            flex: 1;
+        }
+        .range-group span {
+            padding: 8px;
+            color: #999;
+        }
+        .checkbox-group {
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 8px;
+        }
+        .checkbox-item {
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+        }
+        .checkbox-item input[type="checkbox"] {
+            margin-right: 8px;
+            cursor: pointer;
+            width: auto;
+            border: none;
+        }
+        .checkbox-item label {
+            margin: 0;
+            cursor: pointer;
+            text-transform: none;
+            font-weight: normal;
+            color: #333;
+            letter-spacing: normal;
+            font-size: 13px;
+        }
+        .stats {
+            background: #f5f5f5;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        .stats div {
+            color: #666;
+        }
+        .stat-value {
+            color: #333;
+            font-weight: 600;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #357abd;
+        }
+        button:active {
+            background: #2a5099;
+        }
+    </style>
+</head>
+<body>
+<div id='map'></div>
+<div id='sidebar'>
+    <h2>Filter Contracts</h2>
+
+    <div class='stats'>
+        <div>Contracts: <span class='stat-value' id='totalContracts'>{{ total_contracts }}</span></div>
+        <div>Total Value: <span class='stat-value' id='totalValue'>$0</span></div>
+        <div>Showing: <span class='stat-value' id='filteredCount'>{{ total_contracts }}</span></div>
+    </div>
+
+    <div class='filter-section'>
+        <label for='minDate'>From Date</label>
+        <input type='date' id='minDate' />
+    </div>
+
+    <div class='filter-section'>
+        <label for='maxDate'>To Date</label>
+        <input type='date' id='maxDate' />
+    </div>
+
+    <div class='filter-section'>
+        <label>Branch</label>
+        <div class='checkbox-group' id='branchGroup'>
+            {% for branch in branches %}
+            <div class='checkbox-item'>
+                <input type='checkbox' id='branch-{{ loop.index0 }}' value='{{ branch }}' class='branch-checkbox' checked />
+                <label for='branch-{{ loop.index0 }}'>{{ branch }}</label>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class='filter-section'>
+        <label>Dollar Amount</label>
+        <div class='range-group'>
+            <input type='number' id='minDollar' placeholder='Min' />
+            <span>to</span>
+            <input type='number' id='maxDollar' placeholder='Max' />
+        </div>
+    </div>
+
+    <button id='resetBtn'>Reset Filters</button>
+</div>
+
+<script>
+mapboxgl.accessToken = '{{ mapbox_token }}';
+const map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/light-v11',
+    center: [-95.7129, 37.0902],
+    zoom: 3.5,
+    pitch: 0,
+    bearing: 0
+});
+
+const geojsonData = {{ geojson_data | safe }};
+const allFeatures = geojsonData.features || [];
+
+map.on('load', function() {
+    // Add GeoJSON source
+    map.addSource('contracts', {
+        type: 'geojson',
+        data: geojsonData
+    });
+
+    // Add circle layer
+    map.addLayer({
+        id: 'contracts-circles',
+        type: 'circle',
+        source: 'contracts',
+        paint: {
+            'circle-radius': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                3, 4,
+                8, 8,
+                12, 12
+            ],
+            'circle-color': [
+                'interpolate',
+                ['linear'],
+                ['get', 'dollar_amount'],
+                1e6, '#00ff00',
+                5e7, '#ffff00',
+                1e10, '#ff0000'
+            ],
+            'circle-opacity': 0.75,
+            'circle-stroke-width': 1,
+            'circle-stroke-color': '#fff'
+        }
+    });
+
+    // Click handler for popup
+    map.on('click', 'contracts-circles', function(e) {
+        const feature = e.features[0];
+        const props = feature.properties;
+        const popup = new mapboxgl.Popup()
+            .setLngLat(e.lngLat)
+            .setHTML(`
+                <div style='font-size: 12px; max-width: 300px;'>
+                    <strong>${escapeHtml(props.company_name)}</strong><br/>
+                    <strong>Amount:</strong> ${props.dollar_display}<br/>
+                    <strong>Contract:</strong> ${escapeHtml(props.contract_number)}<br/>
+                    <strong>Branch:</strong> ${escapeHtml(props.branch)}<br/>
+                    <strong>Completion:</strong> ${escapeHtml(props.completion_date)}<br/>
+                    <strong>Published:</strong> ${escapeHtml(props.publish_date)}<br/>
+                    <hr style='margin: 8px 0;' />
+                    <small>${escapeHtml(props.description)}</small>
+                </div>
+            `)
+            .addTo(map);
+    });
+
+    // Change cursor on hover
+    map.on('mouseenter', 'contracts-circles', function() {
+        map.getCanvas().style.cursor = 'pointer';
+    });
+    map.on('mouseleave', 'contracts-circles', function() {
+        map.getCanvas().style.cursor = '';
+    });
+});
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function applyFilters() {
+    const minDate = document.getElementById('minDate').value;
+    const maxDate = document.getElementById('maxDate').value;
+    const minDollar = parseFloat(document.getElementById('minDollar').value) || 0;
+    const maxDollar = parseFloat(document.getElementById('maxDollar').value) || Infinity;
+
+    const selectedBranches = Array.from(document.querySelectorAll('.branch-checkbox:checked'))
+        .map(cb => cb.value);
+
+    const filters = ['all'];
+
+    if (minDate) {
+        filters.push(['>=', ['get', 'publish_date'], minDate]);
+    }
+    if (maxDate) {
+        filters.push(['<=', ['get', 'publish_date'], maxDate]);
+    }
+    if (selectedBranches.length > 0) {
+        filters.push(['in', ['get', 'branch'], ['literal', selectedBranches]]);
+    }
+    if (minDollar > 0) {
+        filters.push(['>=', ['get', 'dollar_amount'], minDollar]);
+    }
+    if (maxDollar < Infinity) {
+        filters.push(['<=', ['get', 'dollar_amount'], maxDollar]);
+    }
+
+    if (map.getSource('contracts')) {
+        map.setFilter('contracts-circles', filters);
+    }
+
+    updateStats();
+}
+
+function updateStats() {
+    const features = map.querySourceFeatures('contracts');
+    const filteredCount = features.length;
+    const totalValue = features.reduce((sum, f) => sum + (f.properties.dollar_amount || 0), 0);
+
+    document.getElementById('filteredCount').textContent = filteredCount.toLocaleString();
+    document.getElementById('totalValue').textContent = `$${(totalValue / 1e6).toFixed(1)}M`;
+}
+
+// Event listeners
+document.getElementById('minDate').addEventListener('change', applyFilters);
+document.getElementById('maxDate').addEventListener('change', applyFilters);
+document.getElementById('minDollar').addEventListener('input', applyFilters);
+document.getElementById('maxDollar').addEventListener('input', applyFilters);
+document.querySelectorAll('.branch-checkbox').forEach(cb => {
+    cb.addEventListener('change', applyFilters);
+});
+
+document.getElementById('resetBtn').addEventListener('click', function() {
+    document.getElementById('minDate').value = '';
+    document.getElementById('maxDate').value = '';
+    document.getElementById('minDollar').value = '';
+    document.getElementById('maxDollar').value = '';
+    document.querySelectorAll('.branch-checkbox').forEach(cb => cb.checked = true);
+    applyFilters();
+});
+
+// Initial stats
+updateStats();
+</script>
+</body>
+</html>
