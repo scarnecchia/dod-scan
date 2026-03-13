@@ -77,8 +77,18 @@ def classify() -> None:
 @app.command()
 def geocode() -> None:
     """Resolve contract locations to lat/lon coordinates."""
-    typer.echo("geocode: not yet implemented")
-    raise typer.Exit(code=1)
+    settings = get_settings()
+    init_db(settings.database_path)
+    conn = get_connection(settings.database_path)
+    try:
+        from dod_scan.geocoder import geocode_all
+        count = geocode_all(conn)
+        typer.echo(f"Geocoding complete: {count} contracts geocoded")
+    except Exception as exc:
+        typer.echo(f"Geocoding failed: {exc}", err=True)
+        raise typer.Exit(code=1)
+    finally:
+        conn.close()
 
 
 @app.command()
