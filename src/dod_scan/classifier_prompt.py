@@ -44,7 +44,9 @@ class ClassificationResult:
     reasoning: str
 
 
-def parse_classification_response(response_text: str) -> ClassificationResult | None:
+def parse_classification_response(response_text: str | None) -> ClassificationResult | None:
+    if not response_text:
+        return None
     text = response_text.strip()
 
     json_start = text.find("{")
