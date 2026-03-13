@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import json
-from html import escape
 
 from dod_scan.export_kml_build import ContractPin, format_dollar_amount
 
