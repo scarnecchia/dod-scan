@@ -11,9 +11,13 @@ class MockLLMProvider:
     """Mock LLM provider for testing."""
 
     def __init__(
-        self, responses: dict[int, str | None], model: str = "test-model"
+        self,
+        responses: dict[str, str] | None = None,
+        model: str = "test-model",
     ) -> None:
-        self._responses = responses
+        # responses maps prompt substrings to response text
+        # e.g., {"Procure 100 laptops": '{"is_procurement": true, ...}'}
+        self._responses = responses or {}
         self._model = model
         self.call_count = 0
 
@@ -23,13 +27,15 @@ class MockLLMProvider:
 
     def classify(self, user_prompt: str) -> str:
         self.call_count += 1
-        # Extract contract ID from the prompt (it's embedded in the contract text)
-        # For testing, we'll match the call order
-        contract_id = list(self._responses.keys())[self.call_count - 1]
-        response = self._responses.get(contract_id)
-        if response is None:
-            raise ValueError(f"No response configured for call {self.call_count}")
-        return response
+        # Find a matching response by searching for a key that appears in the prompt
+        for key, response in self._responses.items():
+            if key in user_prompt:
+                return response
+        # If no match found, raise an error with context
+        raise ValueError(
+            f"No response configured for prompt containing any of: "
+            f"{list(self._responses.keys())}. Got prompt: {user_prompt[:100]}..."
+        )
 
 
 class TestClassifyAll:
@@ -45,7 +51,7 @@ class TestClassifyAll:
 
         mock_provider = MockLLMProvider(
             {
-                1: '{"is_procurement": true, "confidence": 0.95, "reasoning": "Physical goods"}'
+                "Procure 100 laptops for military use": '{"is_procurement": true, "confidence": 0.95, "reasoning": "Physical goods"}'
             }
         )
 
@@ -94,7 +100,7 @@ class TestClassifyAll:
         db_conn.commit()
 
         mock_provider = MockLLMProvider(
-            {2: '{"is_procurement": false, "confidence": 0.8, "reasoning": "Service"}'}
+            {"Consulting services": '{"is_procurement": false, "confidence": 0.8, "reasoning": "Service"}'}
         )
 
         result = classify_all(db_conn, mock_provider)
@@ -123,8 +129,8 @@ class TestClassifyAll:
 
         mock_provider = MockLLMProvider(
             {
-                1: "This is not valid JSON at all",
-                2: '{"is_procurement": true, "confidence": 0.9, "reasoning": "Works"}',
+                "Bad response contract": "This is not valid JSON at all",
+                "Good response contract": '{"is_procurement": true, "confidence": 0.9, "reasoning": "Works"}',
             }
         )
 
@@ -162,9 +168,9 @@ class TestClassifyAll:
 
         mock_provider = MockLLMProvider(
             {
-                1: '{"is_procurement": true, "confidence": 0.95, "reasoning": "Equipment"}',
-                2: '{"is_procurement": false, "confidence": 0.85, "reasoning": "Service"}',
-                3: '{"is_procurement": true, "confidence": 0.9, "reasoning": "Supplies"}',
+                "Procure tanks": '{"is_procurement": true, "confidence": 0.95, "reasoning": "Equipment"}',
+                "Maintenance contract": '{"is_procurement": false, "confidence": 0.85, "reasoning": "Service"}',
+                "Supply ammunition": '{"is_procurement": true, "confidence": 0.9, "reasoning": "Supplies"}',
             }
         )
 
@@ -212,10 +218,10 @@ class TestClassifyAll:
 
         mock_provider = MockLLMProvider(
             {
-                1: '{"is_procurement": true, "confidence": 0.9, "reasoning": "Good"}',
-                2: 'Invalid response',
-                3: '{"confidence": 0.8}',  # Missing is_procurement
-                4: '{"is_procurement": false, "confidence": 0.7, "reasoning": "Good"}',
+                "Contract 1": '{"is_procurement": true, "confidence": 0.9, "reasoning": "Good"}',
+                "Contract 2": 'Invalid response',
+                "Contract 3": '{"confidence": 0.8}',  # Missing is_procurement
+                "Contract 4": '{"is_procurement": false, "confidence": 0.7, "reasoning": "Good"}',
             }
         )
 
@@ -270,7 +276,7 @@ class TestClassifyAll:
         db_conn.commit()
 
         mock_provider = MockLLMProvider(
-            {1: '{"is_procurement": true, "confidence": 0.9, "reasoning": "Test"}'}
+            {"Test contract": '{"is_procurement": true, "confidence": 0.9, "reasoning": "Test"}'}
         )
 
         classify_all(db_conn, mock_provider)
@@ -294,7 +300,7 @@ class TestClassifyAll:
         db_conn.commit()
 
         mock_provider = MockLLMProvider(
-            {1: '{"is_procurement": true, "confidence": 0.75, "reasoning": "Test"}'}
+            {"Test contract": '{"is_procurement": true, "confidence": 0.75, "reasoning": "Test"}'}
         )
 
         classify_all(db_conn, mock_provider)

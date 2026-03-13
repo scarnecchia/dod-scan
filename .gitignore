@@ -15,6 +15,9 @@ venv/
 
 # Project outputs
 *.db
+*.db-shm
+*.db-wal
+test_results.txt
 output/
 logs/
 
