@@ -65,9 +65,16 @@ def _fetch_playwright(url: str) -> str:
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.goto(url, wait_until="domcontentloaded", timeout=60_000)
+            browser = p.chromium.launch(
+                headless=False,
+                channel="chrome",
+                args=["--window-position=-32000,-32000"],
+            )
+            ctx = browser.new_context(
+                viewport={"width": 1920, "height": 1080},
+            )
+            page = ctx.new_page()
+            page.goto(url, wait_until="networkidle", timeout=60_000)
             content = page.content()
             browser.close()
             return content
