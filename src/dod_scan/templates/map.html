@@ -140,10 +140,48 @@
         button:active {
             background: #2a5099;
         }
+        #legend {
+            position: absolute;
+            bottom: 30px;
+            right: 10px;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.15);
+            padding: 12px 16px;
+            z-index: 100;
+            font-size: 12px;
+        }
+        #legend h4 {
+            margin: 0 0 8px 0;
+            font-size: 12px;
+            color: #333;
+        }
+        .legend-bar {
+            width: 160px;
+            height: 12px;
+            border-radius: 3px;
+            background: linear-gradient(to right, #00ff00, #ffff00, #ff0000);
+            margin-bottom: 4px;
+        }
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            color: #666;
+            font-size: 10px;
+        }
     </style>
 </head>
 <body>
 <div id='map'></div>
+<div id='legend'>
+    <h4>Contract Value</h4>
+    <div class='legend-bar'></div>
+    <div class='legend-labels'>
+        <span>$1M</span>
+        <span>$50M</span>
+        <span>$10B+</span>
+    </div>
+</div>
 <div id='sidebar'>
     <h2>Filter Contracts</h2>
 
