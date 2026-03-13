@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from dod_scan.export_kml_build import ContractPin
 from dod_scan.export_map_data import (
     get_unique_branches,
