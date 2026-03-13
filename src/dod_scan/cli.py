@@ -4,7 +4,7 @@
 import typer
 
 from dod_scan.config import get_settings
-from dod_scan.db import init_db
+from dod_scan.db import get_connection, init_db
 
 app = typer.Typer(
     name="dod-scan",
@@ -17,8 +17,18 @@ def scrape(
     backfill: int = typer.Option(0, "--backfill", "-b", help="Number of historical pages to fetch"),
 ) -> None:
     """Fetch daily contract pages from war.gov."""
-    typer.echo("scrape: not yet implemented")
-    raise typer.Exit(code=1)
+    settings = get_settings()
+    init_db(settings.database_path)
+    conn = get_connection(settings.database_path)
+    try:
+        from dod_scan.scraper import scrape as do_scrape
+        stored = do_scrape(conn, backfill=backfill)
+        typer.echo(f"Scrape complete: {stored} new pages stored")
+    except Exception as exc:
+        typer.echo(f"Scrape failed: {exc}", err=True)
+        raise typer.Exit(code=1)
+    finally:
+        conn.close()
 
 
 @app.command()
