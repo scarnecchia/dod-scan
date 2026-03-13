@@ -4,6 +4,8 @@
 
 dod-scan is a comprehensive pipeline for scraping, parsing, classifying, geocoding, and exporting U.S. Department of Defense contract awards from war.gov. It fetches daily contract announcements, extracts structured data from HTML, uses an LLM to classify contracts as procurement or service contracts, resolves locations to geographic coordinates, and exports results as interactive KML maps and Mapbox dashboards.
 
+![Map overview with colour-coded contract pins](docs/screenshots/overview.png)
+
 ## Requirements
 
 - **[uv](https://docs.astral.sh/uv/)** — Fast Python package manager (handles Python, venvs, and dependencies)
@@ -161,9 +163,23 @@ Pipeline outputs are written to the `OUTPUT_DIR` directory (default: `./output`)
 ### Mapbox dashboard features
 
 - **Colour-coded pins** — Green ($1M) → Yellow ($50M) → Red ($10B+) by contract value (logarithmic scale)
-- **Click any pin** for contract details (company, amount, branch, completion date, description)
+- **Click any pin** for contract details (company, amount, branch, completion date, description) with a link back to the full announcement on war.gov
 - **Sidebar filters** — Filter by date range, military branch, and dollar amount
+- **Heatmap layer** — Toggleable density overlay weighted by dollar amount
+- **Voronoi layer** — Toggleable tessellation coloured by contract value, showing regional clustering
 - **Legend** — Colour scale reference in the bottom-right corner
+
+#### Contract detail popup
+
+![Contract detail popup with scrollable description and source link](docs/screenshots/popup-detail.png)
+
+#### Heatmap layer
+
+![Heatmap layer showing dollar-weighted contract density](docs/screenshots/heatmap.png)
+
+#### Voronoi layer
+
+![Voronoi tessellation coloured by contract value](docs/screenshots/voronoi.png)
 
 ### Viewing KML in Google Earth
 
