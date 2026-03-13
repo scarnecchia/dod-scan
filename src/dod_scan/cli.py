@@ -51,8 +51,27 @@ def parse() -> None:
 @app.command()
 def classify() -> None:
     """Classify contracts as procurement vs service using LLM."""
-    typer.echo("classify: not yet implemented")
-    raise typer.Exit(code=1)
+    settings = get_settings()
+    if not settings.llm_api_key:
+        typer.echo("Error: LLM_API_KEY not set. Configure in .env file.", err=True)
+        raise typer.Exit(code=1)
+
+    init_db(settings.database_path)
+    conn = get_connection(settings.database_path)
+    try:
+        from dod_scan.classifier import classify_all
+        from dod_scan.classifier_providers import create_provider
+
+        provider = create_provider(
+            settings.llm_provider, settings.llm_api_key, settings.llm_model
+        )
+        count = classify_all(conn, provider)
+        typer.echo(f"Classification complete: {count} contracts classified")
+    except Exception as exc:
+        typer.echo(f"Classification failed: {exc}", err=True)
+        raise typer.Exit(code=1)
+    finally:
+        conn.close()
 
 
 @app.command()
