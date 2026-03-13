@@ -7,17 +7,7 @@ from unittest.mock import patch
 from dod_scan.geocoder import geocode_all
 from dod_scan.geocoder_api import GeocodedLocation
 
-
-def insert_test_page(conn: sqlite3.Connection, article_id: str, url: str = "http://example.com") -> None:
-    """Helper to insert a test page."""
-    conn.execute(
-        """
-        INSERT INTO pages (article_id, url)
-        VALUES (?, ?)
-        """,
-        (article_id, url),
-    )
-    conn.commit()
+from tests.conftest import insert_test_page
 
 
 class TestGeocodeOrchestration:
@@ -302,10 +292,10 @@ class TestGeocodeOrchestration:
             ).fetchone()
             assert row is not None
 
-    def test_insert_or_replace_updates_existing_entry(
+    def test_geocode_after_location_deleted(
         self, db_conn: sqlite3.Connection
     ) -> None:
-        """Verify INSERT OR REPLACE updates existing contract_locations entry."""
+        """Verify contract is re-geocoded when location entry is deleted."""
         insert_test_page(db_conn, "test1")
 
         # Insert contract
