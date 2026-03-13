@@ -269,6 +269,49 @@ def _run_export(conn, settings, format: str, since: str | None, branch: str | No
             typer.echo(f"Mapbox dashboard exported to {map_path}")
 
 
+@app.command(name="reparse-locations")
+def reparse_locations() -> None:
+    """Re-extract work locations from raw text for contracts with empty locations.
+
+    Useful after parser improvements to pick up locations that were missed
+    on the original parse. Clears stale geocode results so the next geocode
+    run resolves the updated locations.
+    """
+    settings = get_settings()
+    init_db(settings.database_path)
+    conn = get_connection(settings.database_path)
+    try:
+        from dod_scan.parser_fields import _extract_work_locations
+
+        rows = conn.execute(
+            "SELECT id, raw_text FROM contracts WHERE work_locations = '[]'"
+        ).fetchall()
+
+        updated = 0
+        for row in rows:
+            new_locations = _extract_work_locations(row["raw_text"])
+            if new_locations != "[]":
+                conn.execute(
+                    "UPDATE contracts SET work_locations = ? WHERE id = ?",
+                    (new_locations, row["id"]),
+                )
+                conn.execute(
+                    "DELETE FROM contract_locations WHERE contract_id = ?",
+                    (row["id"],),
+                )
+                updated += 1
+
+        conn.commit()
+        typer.echo(f"Re-parsed locations: {updated} contracts updated")
+        if updated:
+            typer.echo("Run 'dod-scan geocode' to resolve the new locations")
+    except Exception as exc:
+        typer.echo(f"Reparse failed: {exc}", err=True)
+        raise typer.Exit(code=1)
+    finally:
+        conn.close()
+
+
 @app.command(name="init-db")
 def init_database() -> None:
     """Initialize the database schema."""
