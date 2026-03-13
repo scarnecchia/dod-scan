@@ -45,7 +45,9 @@ def geocode() -> None:
 @app.command()
 def export(
     format: str = typer.Option("kml", "--format", "-f", help="Export format: kml, map, or all"),
-    since: str = typer.Option(None, "--since", help="Filter to contracts from this date onward (YYYY-MM-DD)"),
+    since: str = typer.Option(
+        None, "--since", help="Filter to contracts from this date onward (YYYY-MM-DD)"
+    ),
     branch: str = typer.Option(None, "--branch", help="Filter to specific branch (e.g. ARMY)"),
 ) -> None:
     """Export geocoded procurement contracts as KML and/or Mapbox dashboard."""
