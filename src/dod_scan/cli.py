@@ -10,7 +10,10 @@ from dod_scan.db import get_connection, init_db
 
 app = typer.Typer(
     name="dod-scan",
-    help="DOD contract scanner — scrapes, parses, classifies, geocodes, and exports contract awards.",
+    help=(
+        "DOD contract scanner — scrapes, parses, classifies, geocodes, and exports "
+        "contract awards."
+    ),
 )
 
 
@@ -129,7 +132,10 @@ def export(
                     typer.echo("MAPBOX_TOKEN not set — skipping map export, KML only")
                 else:
                     typer.echo(
-                        "Error: MAPBOX_TOKEN not set. Configure in .env file to generate Mapbox dashboard.",
+                        (
+                            "Error: MAPBOX_TOKEN not set. Configure in .env file to "
+                            "generate Mapbox dashboard."
+                        ),
                         err=True,
                     )
                     raise typer.Exit(code=1)

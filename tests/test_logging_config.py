@@ -3,8 +3,6 @@
 import logging
 from pathlib import Path
 
-import pytest
-
 from dod_scan.logging_config import configure_logging
 
 
@@ -103,7 +101,6 @@ class TestLoggingConfiguration:
         log_dir = tmp_path / "logs"
 
         root = logging.getLogger()
-        initial_handler_count = len(root.handlers)
 
         configure_logging(log_dir)
         handlers_after_first_call = len(root.handlers)

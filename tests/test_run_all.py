@@ -1,7 +1,6 @@
 """Tests for run-all orchestration."""
 
 import logging
-import sqlite3
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -94,7 +93,8 @@ class TestRunAllOrchestration:
                                 result = cli_runner.invoke(app, ["run-all"])
 
                                 assert result.exit_code == 0
-                                assert call_order == ["scrape", "parse", "classify", "geocode", "export"]
+                                expected = ["scrape", "parse", "classify", "geocode", "export"]
+                                assert call_order == expected
 
     def test_run_all_stops_on_first_failure(
         self, tmp_path: Path, cli_runner: CliRunner
