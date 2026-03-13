@@ -32,7 +32,8 @@ def _pin_to_feature(pin: ContractPin) -> dict:
             "branch": pin.branch,
             "completion_date": pin.completion_date,
             "publish_date": pin.publish_date,
-            "description": pin.raw_text[:500],
+            "description": pin.raw_text,
+            "source_url": pin.source_url,
         },
     }
 

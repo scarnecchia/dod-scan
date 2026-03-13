@@ -54,7 +54,7 @@ def query_contract_pins(
         SELECT
             c.company_name, c.dollar_amount, c.contract_number,
             c.branch, c.raw_text, c.completion_date,
-            cl2.latitude, cl2.longitude, p.publish_date
+            cl2.latitude, cl2.longitude, p.publish_date, p.url
         FROM contracts c
         JOIN classifications cl ON cl.contract_id = c.id
         JOIN contract_locations cl2 ON cl2.contract_id = c.id
@@ -84,6 +84,7 @@ def query_contract_pins(
             latitude=row["latitude"],
             longitude=row["longitude"],
             publish_date=row["publish_date"] or "",
+            source_url=row["url"] or "",
         )
         for row in rows
     ]

@@ -19,6 +19,7 @@ class ContractPin:
     latitude: float
     longitude: float
     publish_date: str
+    source_url: str = ""
 
 
 def dollar_to_kml_colour(amount: float, min_val: float = 1e6, max_val: float = 1e10) -> str:

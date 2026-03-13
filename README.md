@@ -7,9 +7,9 @@ dod-scan is a comprehensive pipeline for scraping, parsing, classifying, geocodi
 ## Requirements
 
 - **[uv](https://docs.astral.sh/uv/)** — Fast Python package manager (handles Python, venvs, and dependencies)
+- **Google Chrome** — Required for scraping (war.gov blocks headless browsers; Playwright uses system Chrome)
+- **LLM API access (required for classification)** — Anthropic or OpenRouter
 - **Mapbox account (optional)** — For interactive HTML map dashboards; KML export works without it
-- **LLM API access (required for classification)** — OpenRouter, Anthropic, or compatible provider
-- **Playwright (optional)** — For handling bot-protected pages on war.gov
 
 ## Installation
 
@@ -23,17 +23,11 @@ cd dod-scan
 ### 2. Install dependencies
 
 ```bash
-uv sync --extra dev
-```
-
-This creates a virtual environment, installs Python 3.10+ if needed, and resolves all dependencies.
-
-### 3. (Optional) Install Playwright for bot-protected pages
-
-```bash
 uv sync --all-extras
 uv run playwright install chromium
 ```
+
+This creates a virtual environment, installs Python 3.10+ if needed, resolves all dependencies, and installs the Chromium browser for scraping.
 
 ## Configuration
 
@@ -49,14 +43,15 @@ Edit `.env` with your settings:
 
 ```
 # LLM Provider Configuration
-# Supported providers: "openrouter" or "anthropic"
-LLM_PROVIDER=openrouter
+# Supported providers: "anthropic" or "openrouter"
+LLM_PROVIDER=anthropic
 LLM_API_KEY=sk-...your-api-key...
-LLM_MODEL=anthropic/claude-haiku-4-5-20251001
+LLM_MODEL=claude-haiku-4-5-20251001
 
 # Optional: Mapbox token for interactive HTML dashboard
+# Default public token from https://account.mapbox.com/ (no special scopes needed)
 # Leave blank to skip map export
-MAPBOX_TOKEN=pk-...your-mapbox-token...
+MAPBOX_TOKEN=pk.your-mapbox-token
 
 # Database and output paths
 # Relative paths are resolved from the dod-scan directory
@@ -67,10 +62,10 @@ LOG_DIR=./logs
 
 ### Configuration variables explained
 
-- **LLM_PROVIDER** — Which LLM service to use for contract classification
-- **LLM_API_KEY** — Your API key for the LLM provider (required)
-- **LLM_MODEL** — Model identifier (e.g., Anthropic Haiku, GPT-4, etc.)
-- **MAPBOX_TOKEN** — Token for Mapbox Services; required only for HTML map export
+- **LLM_PROVIDER** — `anthropic` (direct API) or `openrouter` (OpenAI-compatible)
+- **LLM_API_KEY** — Your API key for the LLM provider (required for classification)
+- **LLM_MODEL** — Model identifier. For Anthropic: `claude-haiku-4-5-20251001`. For OpenRouter: `anthropic/claude-haiku-4-5-20251001`
+- **MAPBOX_TOKEN** — Default public token from your Mapbox account; only needed for HTML map export
 - **DATABASE_PATH** — SQLite database file location (created if missing)
 - **OUTPUT_DIR** — Directory where KML and HTML exports are written
 - **LOG_DIR** — Directory for pipeline logs (created if missing)
@@ -91,14 +86,16 @@ Execute all stages in sequence (scrape → parse → classify → geocode → ex
 uv run dod-scan run-all
 ```
 
+By default, this exports both KML and Mapbox HTML (if MAPBOX_TOKEN is set).
+
 With options:
 
 ```bash
 # Fetch 10 historical pages during scrape
 uv run dod-scan run-all --backfill 10
 
-# Export both KML and Mapbox dashboard
-uv run dod-scan run-all --format all
+# Export KML only
+uv run dod-scan run-all --format kml
 
 # Filter exports to contracts from January 2026 onward
 uv run dod-scan run-all --since 2026-01-01
@@ -112,46 +109,34 @@ uv run dod-scan run-all --backfill 5 --format all --since 2026-01-01 --branch AR
 
 ### Run individual stages
 
-Run only the scraper:
+Each stage is idempotent — it skips already-processed records and picks up where it left off.
 
 ```bash
-uv run dod-scan scrape
-uv run dod-scan scrape --backfill 5
+uv run dod-scan scrape              # Fetch today's contract page
+uv run dod-scan scrape --backfill 5 # Fetch today + 5 historical pages
+uv run dod-scan parse               # Extract contracts from raw HTML
+uv run dod-scan classify            # Classify via LLM (procurement vs service)
+uv run dod-scan geocode             # Resolve locations to lat/lon
+uv run dod-scan export              # Export to KML + HTML map
+uv run dod-scan export --format kml # KML only
+uv run dod-scan export --format map # HTML map only
 ```
 
-Extract structured data from raw HTML:
+### Regenerating exports
+
+After fixing data or re-running geocode, regenerate exports without re-running the full pipeline:
 
 ```bash
-uv run dod-scan parse
-```
-
-Classify contracts as procurement vs service:
-
-```bash
-uv run dod-scan classify
-```
-
-Resolve contract locations to coordinates:
-
-```bash
-uv run dod-scan geocode
-```
-
-Export contracts to KML and/or Mapbox:
-
-```bash
-uv run dod-scan export
-uv run dod-scan export --format kml
-uv run dod-scan export --format map
 uv run dod-scan export --format all
-uv run dod-scan export --since 2026-01-01 --branch ARMY
 ```
+
+This re-reads from the database and overwrites the output files. Useful after running `geocode` to pick up newly resolved locations.
 
 ## Scheduling (Cron)
 
 ### Add a daily cron job
 
-Run the full pipeline daily at 6 PM (assuming DOD publishes at 5 PM):
+Run the full pipeline daily at 6 PM (DOD publishes contracts around 5 PM):
 
 ```bash
 crontab -e
@@ -163,106 +148,98 @@ Add this line:
 0 18 * * 1-5 cd /path/to/dod-scan && uv run dod-scan run-all >> /path/to/dod-scan/logs/cron.log 2>&1
 ```
 
-### Cron schedule breakdown
-
-- `0 18` — 6:00 PM
-- `* * 1-5` — Every weekday (Monday–Friday)
-- `cd /path/to/dod-scan` — Navigate to the project directory
-- `uv run dod-scan` — Run the CLI via uv (handles venv automatically)
-- `run-all` — Execute the full pipeline
-- `>> /path/to/dod-scan/logs/cron.log 2>&1` — Log output to cron.log
-
-Replace `/path/to/dod-scan` with the actual absolute path to your dod-scan directory.
+- `0 18 * * 1-5` — 6 PM, weekdays only
+- Replace `/path/to/dod-scan` with the actual path
 
 ## Output Files
 
 Pipeline outputs are written to the `OUTPUT_DIR` directory (default: `./output`):
 
-- **dod_contracts.kml** — KML file containing all contract locations, importable into Google Earth, ArcGIS, or other GIS tools
-- **dod_contracts.html** — Interactive Mapbox dashboard (only created if MAPBOX_TOKEN is configured)
+- **dod_contracts.kml** — Contract locations for Google Earth, ArcGIS, or other GIS tools
+- **dod_contracts.html** — Interactive Mapbox dashboard with filters and popups (requires MAPBOX_TOKEN)
+
+### Mapbox dashboard features
+
+- **Colour-coded pins** — Green ($1M) → Yellow ($50M) → Red ($10B+) by contract value (logarithmic scale)
+- **Click any pin** for contract details (company, amount, branch, completion date, description)
+- **Sidebar filters** — Filter by date range, military branch, and dollar amount
+- **Legend** — Colour scale reference in the bottom-right corner
 
 ### Viewing KML in Google Earth
 
 1. Open [Google Earth Pro](https://www.google.com/earth/download/gep/agree.html) or [Google Earth Web](https://earth.google.com)
 2. Click **File → Open** and select `dod_contracts.kml`
-3. Zoom to see contract locations marked on the map
-4. Click any marker to view contract details
+3. Click any marker to view contract details
 
-### Filtering outputs
-
-Use export options to limit results:
+### Filtering exports
 
 ```bash
-# Only contracts from 2026 onward
-dod-scan export --since 2026-01-01
-
-# Only Navy contracts
-dod-scan export --branch NAVY
-
-# Both filters combined
-dod-scan export --since 2026-01-01 --branch ARMY
+uv run dod-scan export --since 2026-01-01              # Date filter
+uv run dod-scan export --branch NAVY                    # Branch filter
+uv run dod-scan export --since 2026-01-01 --branch ARMY # Combined
 ```
+
+## Geocoding
+
+The geocoder resolves contract work locations to coordinates using the [Nominatim](https://nominatim.openstreetmap.org/) API (OpenStreetMap).
+
+### What gets geocoded
+
+- Only **procurement** contracts (as classified by the LLM) appear on maps
+- The **primary work location** is used (highest percentage if multiple are listed)
+- If no work location is specified, the **company headquarters** is used as fallback
+
+### Location handling
+
+- **US locations** — Structured query (`city, state, country: US`) with fallback to free-text for complex names like military bases
+- **International locations** — Free-text query (e.g., "Bridgend, United Kingdom")
+- **State-only locations** — Geocodes to the state centroid (e.g., "Alabama" → centre of Alabama)
+- **Military bases** — Automatic fallback: tries the full name, then free-text, then state-level
+
+### Caching
+
+All geocoded results are cached in the SQLite database. Re-running `geocode` only hits the API for new, uncached locations. The cache never expires.
 
 ## Troubleshooting
 
 ### 403 Forbidden errors from war.gov
 
-The war.gov site may block aggressive scraping. If you see 403 errors:
+The scraper automatically falls back to system Chrome when httpx gets a 403. If you see warnings like `httpx got 403, falling back to Playwright`, this is **normal operation** — the scraper is handling it.
 
-1. **Add backoff delays** — The scraper includes delays, but you can reduce backfill to fetch fewer pages per run
-2. **Use Playwright fallback** — Install the browser extra: `uv sync --all-extras` and `uv run playwright install chromium`
-3. **Reduce frequency** — Run daily instead of hourly; scraper respects rate limits
+If Playwright also fails:
 
-### Missing LLM_API_KEY
+1. Ensure Google Chrome is installed on the system
+2. Check that `uv sync --all-extras` was run
+3. Reduce backfill to fetch fewer pages per run
 
-If you see "LLM_API_KEY not set":
+### LLM classification errors
 
-1. Check your `.env` file has `LLM_API_KEY=sk-...` (not empty)
-2. Verify the key is valid with your LLM provider
-3. Test: `uv run dod-scan classify` should not fail on missing credentials
+- **"Malformed LLM response"** — The LLM returned unparseable JSON. The contract is skipped and will retry next run.
+- **500 errors** — Transient API failures. The classifier retries up to 3 times with backoff before failing.
+- **404 model not found** — Check `LLM_MODEL` in `.env`. Anthropic uses `claude-haiku-4-5-20251001`; OpenRouter uses `anthropic/claude-haiku-4-5-20251001`.
 
-### Geocoding rate limits
+### Geocoding issues
 
-If geocoding slows or fails:
-
-1. The geocoder respects rate limits and backs off automatically
-2. Resume processing: `uv run dod-scan geocode` will continue where it left off
-3. Check logs: `tail -f logs/dod_scan.log` for detailed errors
+- **"No location to geocode"** — The parser couldn't extract a location from the contract text. Usually edge cases like "UPDATE:" prefixed entries.
+- **"No Nominatim results"** — The location name couldn't be resolved. The geocoder retries with progressively simpler queries before giving up.
+- Re-run `uv run dod-scan geocode` at any time — it only processes contracts without locations.
 
 ### MAPBOX_TOKEN not set
 
-If map export fails:
-
-1. Install token: Set `MAPBOX_TOKEN=pk-...` in `.env`
-2. Create a token at [mapbox.com/account/tokens](https://account.mapbox.com/tokens)
-3. Or skip map export: Use `uv run dod-scan export --format kml` for KML only
+1. Get a default public token from [account.mapbox.com](https://account.mapbox.com/) (no special scopes needed)
+2. Set `MAPBOX_TOKEN=pk.xxx` in `.env`
+3. Without a token, `run-all` produces KML only and logs a skip message
 
 ### Database locked errors
 
-If you see "database is locked":
-
 1. Ensure only one instance of dod-scan is running
 2. Check for stale processes: `ps aux | grep dod-scan`
-3. Remove lock file if needed: `rm dod_scan.db-wal dod_scan.db-shm` (after stopping all instances)
+3. If needed: `rm dod_scan.db-wal dod_scan.db-shm` (after stopping all instances)
 
-### Logs not appearing
-
-Check the log directory:
+### Logs
 
 ```bash
-ls -la logs/
 tail -f logs/dod_scan.log
 ```
 
-If `LOG_DIR` doesn't exist, it will be created on first run. Verify the directory is writable.
-
-### Common log messages
-
-- **"Starting stage: scrape"** — Normal pipeline progress
-- **"403 Forbidden"** — war.gov rejected the request (rate limiting); retries will occur
-- **"No contracts to classify"** — All contracts already classified; nothing to do
-- **"Geocoding complete: 0 contracts geocoded"** — All contracts already geocoded
-
-## Support
-
-For issues, questions, or contributions, please refer to the project repository or documentation.
+Log file is created at first run. INFO+ to file, WARNING+ to console.

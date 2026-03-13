@@ -192,12 +192,12 @@
     </div>
 
     <div class='filter-section'>
-        <label for='minDate'>From Date</label>
+        <label for='minDate'>Published From</label>
         <input type='date' id='minDate' />
     </div>
 
     <div class='filter-section'>
-        <label for='maxDate'>To Date</label>
+        <label for='maxDate'>Published To</label>
         <input type='date' id='maxDate' />
     </div>
 
@@ -278,10 +278,13 @@ map.on('load', function() {
     map.on('click', 'contracts-circles', function(e) {
         const feature = e.features[0];
         const props = feature.properties;
-        const popup = new mapboxgl.Popup()
+        const sourceLink = props.source_url
+            ? `<a href="${escapeHtml(props.source_url)}" target="_blank" rel="noopener" style="color: #4a90e2;">View full announcement</a>`
+            : '';
+        const popup = new mapboxgl.Popup({ maxWidth: '360px' })
             .setLngLat(e.lngLat)
             .setHTML(`
-                <div style='font-size: 12px; max-width: 300px;'>
+                <div style='font-size: 12px;'>
                     <strong>${escapeHtml(props.company_name)}</strong><br/>
                     <strong>Amount:</strong> ${props.dollar_display}<br/>
                     <strong>Contract:</strong> ${escapeHtml(props.contract_number)}<br/>
@@ -289,7 +292,10 @@ map.on('load', function() {
                     <strong>Completion:</strong> ${escapeHtml(props.completion_date)}<br/>
                     <strong>Published:</strong> ${escapeHtml(props.publish_date)}<br/>
                     <hr style='margin: 8px 0;' />
-                    <small>${escapeHtml(props.description)}</small>
+                    <div style='max-height: 150px; overflow-y: auto;'>
+                        <small>${escapeHtml(props.description || '')}</small>
+                    </div>
+                    ${sourceLink ? `<hr style='margin: 8px 0;' />${sourceLink}` : ''}
                 </div>
             `)
             .addTo(map);
@@ -347,11 +353,27 @@ function applyFilters() {
 }
 
 function updateStats() {
-    const features = map.querySourceFeatures('contracts');
-    const filteredCount = features.length;
-    const totalValue = features.reduce((sum, f) => sum + (f.properties.dollar_amount || 0), 0);
+    const minDate = document.getElementById('minDate').value;
+    const maxDate = document.getElementById('maxDate').value;
+    const minDollar = parseFloat(document.getElementById('minDollar').value) || 0;
+    const maxDollar = parseFloat(document.getElementById('maxDollar').value) || Infinity;
+    const selectedBranches = new Set(
+        Array.from(document.querySelectorAll('.branch-checkbox:checked')).map(cb => cb.value)
+    );
 
-    document.getElementById('filteredCount').textContent = filteredCount.toLocaleString();
+    const filtered = allFeatures.filter(f => {
+        const p = f.properties;
+        if (selectedBranches.size === 0) return false;
+        if (!selectedBranches.has(p.branch)) return false;
+        if (minDate && p.publish_date < minDate) return false;
+        if (maxDate && p.publish_date > maxDate) return false;
+        if ((p.dollar_amount || 0) < minDollar) return false;
+        if ((p.dollar_amount || 0) > maxDollar) return false;
+        return true;
+    });
+
+    const totalValue = filtered.reduce((sum, f) => sum + (f.properties.dollar_amount || 0), 0);
+    document.getElementById('filteredCount').textContent = filtered.length.toLocaleString();
     document.getElementById('totalValue').textContent = `$${(totalValue / 1e6).toFixed(1)}M`;
 }
 
@@ -374,7 +396,9 @@ document.getElementById('resetBtn').addEventListener('click', function() {
 });
 
 // Initial stats
-updateStats();
+const initTotal = allFeatures.reduce((sum, f) => sum + (f.properties.dollar_amount || 0), 0);
+document.getElementById('totalValue').textContent = `$${(initTotal / 1e6).toFixed(1)}M`;
+document.getElementById('filteredCount').textContent = allFeatures.length.toLocaleString();
 </script>
 </body>
 </html>
