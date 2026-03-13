@@ -4,8 +4,6 @@ import json
 import sqlite3
 from unittest.mock import patch
 
-import pytest
-
 from dod_scan.geocoder import geocode_all
 from dod_scan.geocoder_api import GeocodedLocation
 
