@@ -46,6 +46,13 @@ CREATE TABLE IF NOT EXISTS geocode_cache (
     longitude        REAL,
     geocoded_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS contract_locations (
+    contract_id      INTEGER PRIMARY KEY REFERENCES contracts(id),
+    latitude         REAL NOT NULL,
+    longitude        REAL NOT NULL,
+    source           TEXT NOT NULL
+);
 """
 
 
