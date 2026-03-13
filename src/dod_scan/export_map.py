@@ -8,6 +8,7 @@ from pathlib import Path
 
 import jinja2
 
+from dod_scan.export_kml_build import ContractPin
 from dod_scan.export_map_data import get_unique_branches, pins_to_geojson
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ class MapExportError(Exception):
 
 
 def export_map(
-    pins: list,
+    pins: list[ContractPin],
     output_path: Path,
     mapbox_token: str,
 ) -> Path:
