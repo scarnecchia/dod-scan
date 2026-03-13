@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 import httpx
 
 from dod_scan.geocoder_resolve import make_location_key
+from dod_scan.parser_fields import US_STATES
 
 logger = logging.getLogger(__name__)
 
@@ -81,14 +82,18 @@ def _cache_result(
 
 
 def _call_nominatim(city: str, state: str) -> GeocodedLocation | None:
-    params = {
-        "city": city,
-        "state": state,
-        "country": "United States",
-        "format": "json",
-        "limit": 1,
-    }
     headers = {"User-Agent": USER_AGENT}
+    is_us = state.title() in US_STATES
+
+    if is_us:
+        params: dict[str, str | int] = {"format": "json", "limit": 1}
+        if city:
+            params["city"] = city
+        params["state"] = state
+        params["country"] = "United States"
+    else:
+        query_parts = [p for p in (city, state) if p]
+        params = {"q": ", ".join(query_parts), "format": "json", "limit": 1}
 
     try:
         resp = httpx.get(NOMINATIM_URL, params=params, headers=headers, timeout=15.0)
