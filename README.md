@@ -6,7 +6,7 @@ dod-scan is a comprehensive pipeline for scraping, parsing, classifying, geocodi
 
 ## Requirements
 
-- **Python 3.10+** — Required for type hints and modern async support
+- **[uv](https://docs.astral.sh/uv/)** — Fast Python package manager (handles Python, venvs, and dependencies)
 - **Mapbox account (optional)** — For interactive HTML map dashboards; KML export works without it
 - **LLM API access (required for classification)** — OpenRouter, Anthropic, or compatible provider
 - **Playwright (optional)** — For handling bot-protected pages on war.gov
@@ -16,28 +16,23 @@ dod-scan is a comprehensive pipeline for scraping, parsing, classifying, geocodi
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-org/dod-scan.git
+git clone https://github.com/scarnecchia/dod-scan.git
 cd dod-scan
 ```
 
-### 2. Create and activate a virtual environment
+### 2. Install dependencies
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+uv sync --extra dev
 ```
 
-### 3. Install the package with dependencies
+This creates a virtual environment, installs Python 3.10+ if needed, and resolves all dependencies.
+
+### 3. (Optional) Install Playwright for bot-protected pages
 
 ```bash
-pip install -e ".[dev]"
-```
-
-### 4. (Optional) Install Playwright for bot-protected pages
-
-```bash
-pip install -e ".[browser]"
-playwright install chromium
+uv sync --all-extras
+uv run playwright install chromium
 ```
 
 ## Configuration
@@ -85,7 +80,7 @@ LOG_DIR=./logs
 ### Initialize the database (first run only)
 
 ```bash
-dod-scan init-db
+uv run dod-scan init-db
 ```
 
 ### Run the full pipeline
@@ -93,26 +88,26 @@ dod-scan init-db
 Execute all stages in sequence (scrape → parse → classify → geocode → export):
 
 ```bash
-dod-scan run-all
+uv run dod-scan run-all
 ```
 
 With options:
 
 ```bash
 # Fetch 10 historical pages during scrape
-dod-scan run-all --backfill 10
+uv run dod-scan run-all --backfill 10
 
 # Export both KML and Mapbox dashboard
-dod-scan run-all --format all
+uv run dod-scan run-all --format all
 
 # Filter exports to contracts from January 2026 onward
-dod-scan run-all --since 2026-01-01
+uv run dod-scan run-all --since 2026-01-01
 
 # Filter to a specific military branch
-dod-scan run-all --branch NAVY
+uv run dod-scan run-all --branch NAVY
 
 # Combine options
-dod-scan run-all --backfill 5 --format all --since 2026-01-01 --branch ARMY
+uv run dod-scan run-all --backfill 5 --format all --since 2026-01-01 --branch ARMY
 ```
 
 ### Run individual stages
@@ -120,36 +115,36 @@ dod-scan run-all --backfill 5 --format all --since 2026-01-01 --branch ARMY
 Run only the scraper:
 
 ```bash
-dod-scan scrape
-dod-scan scrape --backfill 5
+uv run dod-scan scrape
+uv run dod-scan scrape --backfill 5
 ```
 
 Extract structured data from raw HTML:
 
 ```bash
-dod-scan parse
+uv run dod-scan parse
 ```
 
 Classify contracts as procurement vs service:
 
 ```bash
-dod-scan classify
+uv run dod-scan classify
 ```
 
 Resolve contract locations to coordinates:
 
 ```bash
-dod-scan geocode
+uv run dod-scan geocode
 ```
 
 Export contracts to KML and/or Mapbox:
 
 ```bash
-dod-scan export
-dod-scan export --format kml
-dod-scan export --format map
-dod-scan export --format all
-dod-scan export --since 2026-01-01 --branch ARMY
+uv run dod-scan export
+uv run dod-scan export --format kml
+uv run dod-scan export --format map
+uv run dod-scan export --format all
+uv run dod-scan export --since 2026-01-01 --branch ARMY
 ```
 
 ## Scheduling (Cron)
@@ -165,7 +160,7 @@ crontab -e
 Add this line:
 
 ```
-0 18 * * 1-5 cd /path/to/dod-scan && .venv/bin/dod-scan run-all >> /path/to/dod-scan/logs/cron.log 2>&1
+0 18 * * 1-5 cd /path/to/dod-scan && uv run dod-scan run-all >> /path/to/dod-scan/logs/cron.log 2>&1
 ```
 
 ### Cron schedule breakdown
@@ -173,19 +168,11 @@ Add this line:
 - `0 18` — 6:00 PM
 - `* * 1-5` — Every weekday (Monday–Friday)
 - `cd /path/to/dod-scan` — Navigate to the project directory
-- `.venv/bin/dod-scan` — Run the CLI from the virtual environment
+- `uv run dod-scan` — Run the CLI via uv (handles venv automatically)
 - `run-all` — Execute the full pipeline
 - `>> /path/to/dod-scan/logs/cron.log 2>&1` — Log output to cron.log
 
 Replace `/path/to/dod-scan` with the actual absolute path to your dod-scan directory.
-
-### Alternative: Add environment file to cron
-
-For complex setups, source your environment before running:
-
-```bash
-0 18 * * 1-5 cd /path/to/dod-scan && source .venv/bin/activate && dod-scan run-all >> logs/cron.log 2>&1
-```
 
 ## Output Files
 
@@ -223,7 +210,7 @@ dod-scan export --since 2026-01-01 --branch ARMY
 The war.gov site may block aggressive scraping. If you see 403 errors:
 
 1. **Add backoff delays** — The scraper includes delays, but you can reduce backfill to fetch fewer pages per run
-2. **Use Playwright fallback** — Install the browser extra: `pip install -e ".[browser]"` and `playwright install chromium`
+2. **Use Playwright fallback** — Install the browser extra: `uv sync --all-extras` and `uv run playwright install chromium`
 3. **Reduce frequency** — Run daily instead of hourly; scraper respects rate limits
 
 ### Missing LLM_API_KEY
@@ -232,14 +219,14 @@ If you see "LLM_API_KEY not set":
 
 1. Check your `.env` file has `LLM_API_KEY=sk-...` (not empty)
 2. Verify the key is valid with your LLM provider
-3. Test: `dod-scan classify` should not fail on missing credentials
+3. Test: `uv run dod-scan classify` should not fail on missing credentials
 
 ### Geocoding rate limits
 
 If geocoding slows or fails:
 
 1. The geocoder respects rate limits and backs off automatically
-2. Resume processing: `dod-scan geocode` will continue where it left off
+2. Resume processing: `uv run dod-scan geocode` will continue where it left off
 3. Check logs: `tail -f logs/dod_scan.log` for detailed errors
 
 ### MAPBOX_TOKEN not set
@@ -248,7 +235,7 @@ If map export fails:
 
 1. Install token: Set `MAPBOX_TOKEN=pk-...` in `.env`
 2. Create a token at [mapbox.com/account/tokens](https://account.mapbox.com/tokens)
-3. Or skip map export: Use `dod-scan export --format kml` for KML only
+3. Or skip map export: Use `uv run dod-scan export --format kml` for KML only
 
 ### Database locked errors
 
