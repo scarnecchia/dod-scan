@@ -329,6 +329,8 @@ function applyFilters() {
     }
     if (selectedBranches.length > 0) {
         filters.push(['in', ['get', 'branch'], ['literal', selectedBranches]]);
+    } else {
+        filters.push(false);
     }
     if (minDollar > 0) {
         filters.push(['>=', ['get', 'dollar_amount'], minDollar]);
